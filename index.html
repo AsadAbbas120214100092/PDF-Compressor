@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDF Compressor</title>
+    <title>PDF Compressor | Reduce File Size Instantly</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -39,13 +40,17 @@
         }
         
         .header h1 {
-            font-size: 28px;
+            font-size: 32px;
             margin-bottom: 10px;
+            font-weight: 700;
         }
         
         .header p {
-            font-size: 16px;
+            font-size: 18px;
             opacity: 0.9;
+            max-width: 500px;
+            margin: 0 auto;
+            line-height: 1.5;
         }
         
         .upload-container {
@@ -231,41 +236,49 @@
             .action-buttons {
                 flex-direction: column;
             }
+            
+            .header h1 {
+                font-size: 28px;
+            }
+            
+            .header p {
+                font-size: 16px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1><i class="fas fa-file-pdf"></i> PDF Compressor</h1>
-            <p>Reduce your PDF file size with our easy-to-use compressor</p>
+            <h1><i class="fas fa-file-pdf"></i> Shrink PDF Files in Seconds</h1>
+            <p>Reduce your PDF size without losing quality. Fast, free, and easy to use!</p>
         </div>
         
         <div class="upload-container">
             <div class="upload-area" id="upload-area">
                 <i class="fas fa-cloud-upload-alt"></i>
-                <h3>Click to Upload PDF</h3>
-                <p>Maximum file size: 10MB</p>
+                <h3>Upload Your PDF File</h3>
+                <p>Drag & drop or click to select your PDF (Max: 10MB)</p>
                 <input type="file" id="file-input" accept=".pdf">
             </div>
             
             <div class="quality-selector">
-                <h3>Select Compression Quality</h3>
+                <h3>Select Compression Level</h3>
                 <div class="quality-options">
                     <div class="quality-option selected" data-quality="low">
-                        <h4>Low Quality</h4>
-                        <p>Smaller size, lower quality</p>
+                        <h4>Smaller Size</h4>
+                        <p>Reduced quality, smaller file</p>
                     </div>
                     <div class="quality-option" data-quality="medium">
-                        <h4>Medium Quality</h4>
-                        <p>Balance between size and quality</p>
+                        <h4>Better Quality</h4>
+                        <p>Good quality, moderate compression</p>
                     </div>
                 </div>
             </div>
             
             <div class="action-buttons">
-                <button id="compress-btn">Compress PDF</button>
-                <button id="download-btn">Download PDF</button>
+                <button id="compress-btn">Compress PDF Now</button>
+                <button id="download-btn">Download Compressed PDF</button>
             </div>
             
             <div class="progress-bar">
@@ -296,7 +309,7 @@
         </div>
         
         <div class="footer">
-            <h4>@2025: Design By Asad Abbas, The Smart School Teacher.</h4>
+            <h4>@2025.Designed by Asad Abbas, The Smart School Teacher.</h4>
         </div>
     </div>
 
@@ -317,6 +330,7 @@
             
             let selectedQuality = 'low';
             let currentFile = null;
+            let compressedPdfBytes = null;
             
             // Upload area click handler
             uploadArea.addEventListener('click', function() {
@@ -342,6 +356,12 @@
                     
                     currentFile = file;
                     displayFileInfo(file);
+                    
+                    // Reset compression info
+                    compressedSize.textContent = '-';
+                    sizeReduced.textContent = '-';
+                    downloadBtn.style.display = 'none';
+                    compressedPdfBytes = null;
                 }
             });
             
@@ -355,7 +375,7 @@
             });
             
             // Compress button click handler
-            compressBtn.addEventListener('click', function() {
+            compressBtn.addEventListener('click', async function() {
                 if (!currentFile) {
                     alert('Please select a PDF file first');
                     return;
@@ -364,56 +384,58 @@
                 // Show progress bar
                 progressBar.style.display = 'block';
                 
-                // Simulate compression process
-                let progressValue = 0;
-                const interval = setInterval(() => {
-                    progressValue += 5;
-                    progress.style.width = progressValue + '%';
+                try {
+                    // Read the PDF file
+                    const arrayBuffer = await currentFile.arrayBuffer();
                     
-                    if (progressValue >= 100) {
-                        clearInterval(interval);
-                        simulateCompressionComplete();
+                    // Load the PDF
+                    const { PDFDocument } = PDFLib;
+                    const pdfDoc = await PDFDocument.load(arrayBuffer);
+                    
+                    // Set compression level based on quality selection
+                    let compressionLevel = 9; // Highest compression (low quality)
+                    if (selectedQuality === 'medium') {
+                        compressionLevel = 6; // Medium compression
                     }
-                }, 100);
+                    
+                    // Save the PDF with compression
+                    compressedPdfBytes = await pdfDoc.save({
+                        useObjectStreams: true,
+                        addDefaultPage: false,
+                        objectsPerTick: 10,
+                        compressFonts: true,
+                        compressImages: true,
+                        imageCompressionLevel: compressionLevel
+                    });
+                    
+                    // Simulate progress for UI feedback
+                    let progressValue = 0;
+                    const interval = setInterval(() => {
+                        progressValue += 5;
+                        progress.style.width = progressValue + '%';
+                        
+                        if (progressValue >= 100) {
+                            clearInterval(interval);
+                            compressionComplete();
+                        }
+                    }, 50);
+                    
+                } catch (error) {
+                    console.error('Error compressing PDF:', error);
+                    alert('Error compressing PDF. Please try again with a different file.');
+                    progressBar.style.display = 'none';
+                }
             });
             
-            // Download button click handler
-            downloadBtn.addEventListener('click', function() {
-                if (!currentFile) return;
-                
-                // Create a dummy download link
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(currentFile);
-                link.download = 'compressed-' + currentFile.name;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            });
-            
-            // Display file information
-            function displayFileInfo(file) {
-                fileName.textContent = file.name;
-                originalSize.textContent = formatFileSize(file.size);
-                fileInfo.style.display = 'block';
-                
-                // Reset compression info
-                compressedSize.textContent = '-';
-                sizeReduced.textContent = '-';
-                downloadBtn.style.display = 'none';
-            }
-            
-            // Simulate compression completion
-            function simulateCompressionComplete() {
-                // Calculate simulated compression based on quality
-                let compressionRatio;
-                if (selectedQuality === 'low') {
-                    compressionRatio = 0.4; // 60% size reduction
-                } else {
-                    compressionRatio = 0.7; // 30% size reduction
+            // Compression complete handler
+            function compressionComplete() {
+                if (!compressedPdfBytes) {
+                    alert('Compression failed. Please try again.');
+                    return;
                 }
                 
                 const originalSizeValue = currentFile.size;
-                const compressedSizeValue = Math.round(originalSizeValue * compressionRatio);
+                const compressedSizeValue = compressedPdfBytes.length;
                 const reduction = originalSizeValue - compressedSizeValue;
                 
                 // Update UI with compression results
@@ -432,6 +454,35 @@
                     progressBar.style.display = 'none';
                     progress.style.width = '0%';
                 }, 1000);
+            }
+            
+            // Download button click handler
+            downloadBtn.addEventListener('click', function() {
+                if (!compressedPdfBytes) {
+                    alert('No compressed file available. Please compress a PDF first.');
+                    return;
+                }
+                
+                // Create a blob from the compressed PDF bytes
+                const blob = new Blob([compressedPdfBytes], { type: 'application/pdf' });
+                
+                // Create a download link
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = 'compressed-' + currentFile.name;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                // Clean up the URL object
+                setTimeout(() => URL.revokeObjectURL(link.href), 100);
+            });
+            
+            // Display file information
+            function displayFileInfo(file) {
+                fileName.textContent = file.name;
+                originalSize.textContent = formatFileSize(file.size);
+                fileInfo.style.display = 'block';
             }
             
             // Format file size to human readable format
@@ -479,6 +530,12 @@
                     
                     currentFile = file;
                     displayFileInfo(file);
+                    
+                    // Reset compression info
+                    compressedSize.textContent = '-';
+                    sizeReduced.textContent = '-';
+                    downloadBtn.style.display = 'none';
+                    compressedPdfBytes = null;
                 }
             });
         });
